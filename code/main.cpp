@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <arpa/inet.h>
+#include "./libs/board.hpp"
 
 /**
  * Prototypes
@@ -13,6 +14,8 @@ int show_usage();
 int validate_options(int argc, char *argv[]);
 int validate_port(char *port);
 int validate_ip(char *string_ip);
+void insert_ships(Board *board);
+void wait_for_enter(std::string message);
 
 int main(int argc, char *argv[])
 {
@@ -22,13 +25,20 @@ int main(int argc, char *argv[])
     if (mode == -1)
         return show_usage();
 
+    Board board;
+
+    // Insert the ships into the board
+    insert_ships(&board);
+
     // Client mode
     if (mode == 0)
-        return 0;
+    {
+    }
 
     // Server mode
     if (mode == 1)
-        return 0;
+    {
+    }
 
     return 0;
 }
@@ -134,4 +144,74 @@ int show_usage()
     std::cout << "Utilização: ./main [ -l | --listen <port> ] | [ -c | --connect <ip> <port> ]\n";
 
     return -1;
+}
+
+/**
+ *
+ */
+void insert_ships(Board *board)
+{
+    while (board->get_available_ships() > 0)
+    {
+        board->show_board();
+
+        board->show_available_ships();
+
+        std::cout << "Digite o tipo de navio (2 letras): ";
+
+        std::string type;
+
+        std::cin >> type;
+
+        int size = board->get_ship_size(type);
+
+        if (size == -1)
+        {
+            wait_for_enter("\nTipo Inválido! [Enter]");
+
+            continue;
+        }
+        char line;
+
+        std::cout << "Linha (A-J): ";
+
+        std::cin >> line;
+
+        int column;
+
+        std::cout << "Coluna (1-10): ";
+
+        std::cin >> column;
+
+        char direction;
+
+        std::cout << "Direção do navio (H ou V): ";
+
+        std::cin >> direction;
+
+        if (board->insert_ship(line, column, type, direction) == -1)
+        {
+            wait_for_enter("\nFalha ao inserir! [Enter]");
+            continue;
+        }
+
+        system("clear");
+    }
+}
+
+/**
+ * Displays a message and waits for the user to press enter
+ * @param message The message to be displayed
+ */
+void wait_for_enter(std::string message)
+{
+    std::cout << message;
+
+    std::cin.ignore();
+
+    while (std::cin.get() != 10)
+    {
+    };
+
+    system("clear");
 }
