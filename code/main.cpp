@@ -37,36 +37,14 @@ int main(int argc, char *argv[])
     // Insert the ships into the board
     insert_ships(&board);
 
-    system("clear");
+    // Game loop
+    while (!board.check_game_over()) {
+        board.show_board();
 
-    std::cout << board.enemy_shot('H', 10) << "\n";
-    std::cout << board.enemy_shot('H', 10) << "\n";
-    std::cout << board.enemy_shot('I', 10) << "\n";
-    std::cout << board.enemy_shot('J', 10) << "\n";
+        // Check turn
 
-    std::cout << board.enemy_shot('I', 4) << "\n";
-    std::cout << board.enemy_shot('I', 6) << "\n";
-    std::cout << board.enemy_shot('I', 5) << "\n";
-
-    std::cout << board.enemy_shot('A', 11) << "\n";
-    std::cout << board.enemy_shot('A', 5) << "\n";
-    std::cout << board.enemy_shot('A', 6) << "\n";
-    std::cout << board.enemy_shot('A', 7) << "\n";
-    std::cout << board.enemy_shot('A', 3) << "\n";
-    std::cout << board.enemy_shot('A', 4) << "\n";
-
-    std::cout << board.enemy_shot('C', 6) << "\n";
-    std::cout << board.enemy_shot('D', 6) << "\n";
-    std::cout << board.enemy_shot('E', 6) << "\n";
-    std::cout << board.enemy_shot('F', 6) << "\n";
-
-    std::cout << board.enemy_shot('B', 1) << "\n";
-    std::cout << board.enemy_shot('E', 1) << "\n";
-
-    std::cout << board.enemy_shot('D', 1) << "\n";
-    std::cout << board.enemy_shot('C', 1) << "\n";
-
-    board.show_board();
+        
+    }
 
     // Client mode
     if (mode == 0)

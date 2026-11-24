@@ -22,6 +22,8 @@ public:
     int get_available_ships(std::string type);
     int get_ship_size(std::string type);
     std::string enemy_shot(char line, int column);
+    int ally_shot(char line, int column);
+    bool check_game_over();
 
 private:
     int ally_side[10][10];
@@ -32,7 +34,6 @@ private:
     int validate_coordinates(char line, int column);
     int validate_ship_placement(char line, int column, std::string type, char direction);
     int set_placed(std::string type);
-    bool check_game_over();
 };
 
 /**
@@ -307,7 +308,7 @@ std::string Board::enemy_shot(char line, int column)
     // Check if it was a non-sunking hit
     if (!ships[ship_index].has_sunken())
         return std::string("ACERTOU");
-    
+
     std::string result;
 
     result.append("AFUNDOU " + ships[ship_index].get_type());
@@ -350,6 +351,21 @@ int Board::set_placed(std::string type)
     }
 
     return -1;
+}
+
+int Board::ally_shot(char line, int column)
+{
+    // Validate the coordinates
+    if (validate_coordinates(line, column) == -1)
+        return -1;
+
+    // Check if it is a repeated shot
+    if (enemy_side[lines.find(line)][column - 1] == 6)
+        return -2;
+
+    enemy_side[lines.find(line)][column - 1] = 6;
+
+    return 0;
 }
 
 #endif
