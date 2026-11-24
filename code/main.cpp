@@ -27,8 +27,46 @@ int main(int argc, char *argv[])
 
     Board board;
 
+    board.insert_ship('A', 3, "PA", 'H');
+    board.insert_ship('B', 1, "DE", 'V');
+    board.insert_ship('D', 1, "DE", 'V');
+    board.insert_ship('C', 6, "EN", 'V');
+    board.insert_ship('I', 4, "CR", 'H');
+    board.insert_ship('H', 10, "CR", 'V');
+
     // Insert the ships into the board
     insert_ships(&board);
+
+    system("clear");
+
+    std::cout << board.enemy_shot('H', 10) << "\n";
+    std::cout << board.enemy_shot('H', 10) << "\n";
+    std::cout << board.enemy_shot('I', 10) << "\n";
+    std::cout << board.enemy_shot('J', 10) << "\n";
+
+    std::cout << board.enemy_shot('I', 4) << "\n";
+    std::cout << board.enemy_shot('I', 6) << "\n";
+    std::cout << board.enemy_shot('I', 5) << "\n";
+
+    std::cout << board.enemy_shot('A', 11) << "\n";
+    std::cout << board.enemy_shot('A', 5) << "\n";
+    std::cout << board.enemy_shot('A', 6) << "\n";
+    std::cout << board.enemy_shot('A', 7) << "\n";
+    std::cout << board.enemy_shot('A', 3) << "\n";
+    std::cout << board.enemy_shot('A', 4) << "\n";
+
+    std::cout << board.enemy_shot('C', 6) << "\n";
+    std::cout << board.enemy_shot('D', 6) << "\n";
+    std::cout << board.enemy_shot('E', 6) << "\n";
+    std::cout << board.enemy_shot('F', 6) << "\n";
+
+    std::cout << board.enemy_shot('B', 1) << "\n";
+    std::cout << board.enemy_shot('E', 1) << "\n";
+
+    std::cout << board.enemy_shot('D', 1) << "\n";
+    std::cout << board.enemy_shot('C', 1) << "\n";
+
+    board.show_board();
 
     // Client mode
     if (mode == 0)
@@ -151,7 +189,7 @@ int show_usage()
  */
 void insert_ships(Board *board)
 {
-    while (board->get_available_ships() > 0)
+    while (board->get_available_ships("") > 0)
     {
         board->show_board();
 

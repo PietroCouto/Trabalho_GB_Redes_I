@@ -6,6 +6,7 @@
 #define BOARD_H
 
 #include <iostream>
+#include "./ship.hpp"
 
 inline constexpr std::string_view lines = "ABCDEFGHIJ";
 inline constexpr std::string_view ships = "PA EN CR DE";
@@ -18,18 +19,20 @@ public:
     void show_board();
     int insert_ship(char line, int column, std::string type, char direction);
     void show_available_ships();
-    int get_available_ships();
+    int get_available_ships(std::string type);
     int get_ship_size(std::string type);
     std::string enemy_shot(char line, int column);
 
 private:
-    std::string ally_side[10][10];
-    std::string enemy_side[10][10];
+    int ally_side[10][10];
+    int enemy_side[10][10];
     std::string positions;
-    int available_ships[4];
+    Ship ships[6];
 
     int validate_coordinates(char line, int column);
     int validate_ship_placement(char line, int column, std::string type, char direction);
+    int set_placed(std::string type);
+    bool check_game_over();
 };
 
 /**
@@ -37,19 +40,23 @@ private:
  */
 Board::Board()
 {
+    // Set the board to water
     for (int i = 0; i < 10; i++)
     {
         for (int j = 0; j < 10; j++)
         {
-            ally_side[i][j].assign("oo");
-            enemy_side[i][j].assign("oo");
+            ally_side[i][j] = -1;
+            enemy_side[i][j] = -1;
         }
     }
 
-    available_ships[0] = 2;
-    available_ships[1] = 2;
-    available_ships[2] = 1;
-    available_ships[3] = 1;
+    // Create the ships
+    ships[0] = Ship("PA", 5);
+    ships[1] = Ship("EN", 4);
+    ships[2] = Ship("CR", 3);
+    ships[3] = Ship("CR", 3);
+    ships[4] = Ship("DE", 2);
+    ships[5] = Ship("DE", 2);
 }
 
 /**
@@ -60,17 +67,39 @@ void Board::show_board()
     std::cout << "              JOGADOR                           INIMIGO\n\n";
     std::cout << "   01 02 03 04 05 06 07 08 09 10     01 02 03 04 05 06 07 08 09 10\n\n";
 
+    // Displays the lines
     for (int line = 0; line < lines.size(); line++)
     {
         std::cout << lines.at(line) << "  ";
 
+        // Displays the ally line
         for (int j = 0; j < 10; j++)
-            std::cout << ally_side[line][j] << " ";
+        {
+            if (ally_side[line][j] >= 0 && ally_side[line][j] < 6)
+                std::cout << ships[ally_side[line][j]].get_type();
+
+            if (ally_side[line][j] == -1)
+                std::cout << "~~";
+
+            if (ally_side[line][j] == 6)
+                std::cout << "XX";
+
+            std::cout << " ";
+        }
 
         std::cout << " " << lines.at(line) << "  ";
 
+        // Displays the enemy line
         for (int j = 0; j < 10; j++)
-            std::cout << enemy_side[line][j] << " ";
+        {
+            if (enemy_side[line][j] == -1)
+                std::cout << "~~";
+
+            if (enemy_side[line][j] == 6)
+                std::cout << "XX";
+
+            std::cout << " ";
+        }
 
         std::cout << " " << lines.at(line) << "\n";
     }
@@ -116,7 +145,7 @@ int Board::validate_ship_placement(char line, int column, std::string type, char
         return -1;
 
     // Check if this type is available
-    if (available_ships[size - 2] == 0)
+    if (get_available_ships(type) == 0)
         return -1;
 
     // Validate horizontally
@@ -128,7 +157,7 @@ int Board::validate_ship_placement(char line, int column, std::string type, char
 
         // Validate if the slot is empty
         for (int j = column - 1; j < column + size - 1; j++)
-            if (ally_side[lines.find(line)][j].compare("oo") != 0)
+            if (ally_side[lines.find(line)][j] != -1)
                 return -1;
 
         return 0;
@@ -143,7 +172,7 @@ int Board::validate_ship_placement(char line, int column, std::string type, char
 
         // Validate if the slot is empty
         for (int i = lines.find(line); i < lines.find(line) + size; i++)
-            if (ally_side[i][column - 1].compare("oo") != 0)
+            if (ally_side[i][column - 1] != -1)
                 return -1;
 
         return 0;
@@ -166,25 +195,26 @@ int Board::insert_ship(char line, int column, std::string type, char direction)
     if (validate_ship_placement(line, column, type, direction) == -1)
         return -1;
 
-    int size = get_ship_size(type);
+    int ship_index = set_placed(type);
 
     // Decrease this type's available ships
-    available_ships[size - 2]--;
+    if (ship_index == -1)
+        return -1;
 
     // Insert horizontally
     if (direction == 'H')
-        for (int j = column - 1; j < column + size - 1; j++)
-            ally_side[lines.find(line)][j].assign(type);
+        for (int j = column - 1; j < column + ships[ship_index].get_size() - 1; j++)
+            ally_side[lines.find(line)][j] = ship_index;
 
     // Insert vertically
     if (direction == 'V')
-        for (int i = lines.find(line); i < lines.find(line) + size; i++)
-            ally_side[i][column - 1].assign(type);
+        for (int i = lines.find(line); i < lines.find(line) + ships[ship_index].get_size(); i++)
+            ally_side[i][column - 1] = ship_index;
 
     // Save the position
     this->positions.append(type + ":" + line + std::to_string(column) + ":" + direction);
 
-    if (get_available_ships() > 0)
+    if (get_available_ships("") > 0)
         this->positions.append(" ");
 
     return 0;
@@ -220,33 +250,106 @@ int Board::get_ship_size(std::string type)
 void Board::show_available_ships()
 {
     std::cout << "----- Disponível -----" << "\n";
-    std::cout << "PA - Porta-aviões: " << available_ships[3] << "\n";
-    std::cout << "EN - Encouraçado: " << available_ships[2] << "\n";
-    std::cout << "CR - Cruzador: " << available_ships[1] << "\n";
-    std::cout << "DE - Destroyer: " << available_ships[0] << "\n\n";
+    std::cout << "PA - Porta-aviões: " << get_available_ships("PA") << "\n";
+    std::cout << "EN - Encouraçado: " << get_available_ships("EN") << "\n";
+    std::cout << "CR - Cruzador: " << get_available_ships("CR") << "\n";
+    std::cout << "DE - Destroyer: " << get_available_ships("DE") << "\n\n";
 }
 
 /**
  * Get the amount of available ships
  * @returns The total amount of available ships
  */
-int Board::get_available_ships()
+int Board::get_available_ships(std::string type)
 {
-    return available_ships[0] + available_ships[1] + available_ships[2] + available_ships[3];
+    int available = 0;
+
+    for (int i = 0; i < 6; i++)
+        if (!ships[i].is_placed() && (ships[i].get_type().compare(type) == 0 || type.compare("") == 0))
+            available++;
+
+    return available;
 }
 
+/**
+ * Validates an enemy shot
+ * @param line The line shot
+ * @param column The column shot
+ * @returns String with the result
+ */
 std::string Board::enemy_shot(char line, int column)
 {
+    // Check if the coordinates are valid
     if (validate_coordinates(line, column) == -1)
         return std::string("ERRO Coordenada inválida!");
 
-    if (ally_side[lines.find(line)][column - 1] == "oo")
+    // Check if it is a repeated shot
+    if (ally_side[lines.find(line)][column - 1] == 6)
+        return std::string("ERRO Coordenada Repetida!");
+
+    // Check if it hit the water
+    if (ally_side[lines.find(line)][column - 1] == -1)
+    {
+        ally_side[lines.find(line)][column - 1] = 6;
+
         return std::string("AGUA");
+    }
 
-    if (ally_side[lines.find(line)][column - 1] == "XX")
-        return std::string("REPETIDO");
+    // Increment ship's shot count
+    ships[ally_side[lines.find(line)][column - 1]].shot();
 
-    return std::string("AGUA");
+    // Get the hitten ship
+    int ship_index = ally_side[lines.find(line)][column - 1];
+
+    // Register the shot
+    ally_side[lines.find(line)][column - 1] = 6;
+
+    // Check if it was a non-sunking hit
+    if (!ships[ship_index].has_sunken())
+        return std::string("ACERTOU");
+    
+    std::string result;
+
+    result.append("AFUNDOU " + ships[ship_index].get_type());
+
+    // Check if the game has ended
+    if (check_game_over())
+        result.append(" FIM");
+
+    return result;
 };
+
+/**
+ * Checks if the game has ended
+ * @returns boolean indicating the game over
+ */
+bool Board::check_game_over()
+{
+    for (int i = 0; i < 6; i++)
+        if (!ships[i].has_sunken())
+            return false;
+
+    return true;
+}
+
+/**
+ * Registers a ship from type as placed
+ * @param type The type of ship to be registered
+ * @returns -1 for error, index of the ship for success
+ */
+int Board::set_placed(std::string type)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        // Check if it is the same type and has not been placed
+        if (!ships[i].is_placed() && ships[i].get_type().compare(type) == 0)
+        {
+            ships[i].place();
+            return i;
+        }
+    }
+
+    return -1;
+}
 
 #endif
