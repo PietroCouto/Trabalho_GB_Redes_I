@@ -5,7 +5,11 @@
 #include <iostream>
 #include <string>
 #include <arpa/inet.h>
+#include <thread>
+
 #include "./libs/board.hpp"
+#include "./libs/server.hpp"
+#include "./libs/client.hpp"
 
 /**
  * Prototypes
@@ -38,22 +42,37 @@ int main(int argc, char *argv[])
     insert_ships(&board);
 
     // Game loop
-    while (!board.check_game_over()) {
-        board.show_board();
+    // while (!board.check_game_over()) {
+    //     board.show_board();
 
-        // Check turn
+    // Check turn
 
-        
-    }
+    // }
 
     // Client mode
     if (mode == 0)
     {
+        Client client = Client(argv[2], std::stoi(argv[3]));
+
+        client.start_client();
+
+        client.send_message("TESTEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     }
 
     // Server mode
     if (mode == 1)
     {
+        Server server = Server(std::stoi(argv[2]));
+
+        server.start_server();
+
+        std::cout << "deu certo";
+        
+        std::thread listen_t(&Server::receive_message, &server);
+
+        std::cout << "deu certo";
+
+        listen_t.join();
     }
 
     return 0;
