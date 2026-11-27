@@ -8,12 +8,16 @@
 #include <thread>
 #include <limits>
 
+/**
+ * Handmade Libraries
+ */
 #include "./libs/board.hpp"
 #include "./libs/server.hpp"
 
 /**
  * Prototypes
  */
+
 int show_usage();
 int validate_options(int argc, char *argv[]);
 int validate_port(char *port);
@@ -21,6 +25,12 @@ int validate_ip(char *string_ip);
 void insert_ships(Board *board);
 void wait_for_enter(std::string message);
 
+/**
+ * Battleship game
+ * @param argc Argument count
+ * @param argv Argument array
+ * @returns -1 for error, 0 for success
+ */
 int main(int argc, char *argv[])
 {
     int mode = validate_options(argc, argv);
@@ -29,6 +39,7 @@ int main(int argc, char *argv[])
     if (mode == -1)
         return show_usage();
 
+    // Create the server
     Server server = Server(mode);
 
     // Client mode
@@ -48,7 +59,7 @@ int main(int argc, char *argv[])
     // Start the listening thread
     std::thread listen_t(&Server::receive_message, &server);
 
-    Board board;
+    Board board(mode);
 
     // TODO remove after tests
     board.insert_ship('A', 3, "PA", 'H');
@@ -179,6 +190,7 @@ int validate_port(char *port)
 
 /**
  * Displays the correct command line usage
+ * @returns -1 indicating the incorrect usage
  */
 int show_usage()
 {
@@ -188,7 +200,8 @@ int show_usage()
 }
 
 /**
- *
+ * Get the fleet position from user input
+ * @param board Pointer to the board
  */
 void insert_ships(Board *board)
 {

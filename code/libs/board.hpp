@@ -14,23 +14,30 @@ inline constexpr std::string_view ships = "PA EN CR DE";
 class Board
 {
 public:
-    Board();
+    // Constructor
+    Board(bool ally_starts);
 
+    // Methods
     void show_board();
     int insert_ship(char line, int column, std::string type, char direction);
     void show_available_ships();
     int get_available_ships(std::string type);
     int get_ship_size(std::string type);
     std::string enemy_shot(char line, int column);
-    int ally_shot(char line, int column);
+    int ally_shot(char line, int column, bool hit);
     bool check_game_over();
+    std::string get_fleet();
+    bool get_ally_turn();
 
 private:
+    // Attributes
     int ally_side[10][10];
     int enemy_side[10][10];
     std::string positions;
     Ship ships[6];
+    bool ally_turn;
 
+    // Methods
     int validate_coordinates(char line, int column);
     int validate_ship_placement(char line, int column, std::string type, char direction);
     int set_placed(std::string type);
@@ -38,8 +45,9 @@ private:
 
 /**
  * Constructor
+ * @param ally_starts Whether the ally should start the game
  */
-Board::Board()
+Board::Board(bool ally_starts)
 {
     // Set the board to water
     for (int i = 0; i < 10; i++)
@@ -58,6 +66,9 @@ Board::Board()
     ships[3] = Ship("CR", 3);
     ships[4] = Ship("DE", 2);
     ships[5] = Ship("DE", 2);
+
+    // Set the starting player
+    this->ally_turn = ally_starts;
 }
 
 /**
@@ -85,6 +96,9 @@ void Board::show_board()
             if (ally_side[line][j] == 6)
                 std::cout << "XX";
 
+            if (ally_side[line][j] == 7)
+                std::cout << "**";
+
             std::cout << " ";
         }
 
@@ -98,6 +112,9 @@ void Board::show_board()
 
             if (enemy_side[line][j] == 6)
                 std::cout << "XX";
+
+            if (enemy_side[line][j] == 7)
+                std::cout << "**";
 
             std::cout << " ";
         }
@@ -280,13 +297,19 @@ int Board::get_available_ships(std::string type)
  */
 std::string Board::enemy_shot(char line, int column)
 {
+    // Check if it is the enemy turn
+    if (this->ally_turn)
+        return std::string("ERRO turno errado!");
+
     // Check if the coordinates are valid
     if (validate_coordinates(line, column) == -1)
         return std::string("ERRO Coordenada inválida!");
 
     // Check if it is a repeated shot
-    if (ally_side[lines.find(line)][column - 1] == 6)
+    if (ally_side[lines.find(line)][column - 1] >= 6)
         return std::string("ERRO Coordenada Repetida!");
+
+    this->ally_turn = true;
 
     // Check if it hit the water
     if (ally_side[lines.find(line)][column - 1] == -1)
@@ -353,19 +376,49 @@ int Board::set_placed(std::string type)
     return -1;
 }
 
-int Board::ally_shot(char line, int column)
+/**
+ * Register the ally shot result
+ * @param line The line coordinate
+ * @param column The column coordinate
+ * @param hit If the shot hit a ship
+ */
+int Board::ally_shot(char line, int column, bool hit)
 {
+    // Check if it is the ally turn
+    if (!this->ally_turn)
+        return -1;
+
     // Validate the coordinates
     if (validate_coordinates(line, column) == -1)
         return -1;
 
     // Check if it is a repeated shot
-    if (enemy_side[lines.find(line)][column - 1] == 6)
-        return -2;
+    if (enemy_side[lines.find(line)][column - 1] >= 6)
+        return -1;
 
-    enemy_side[lines.find(line)][column - 1] = 6;
+    enemy_side[lines.find(line)][column - 1] = hit ? 6 : 7;
+
+    this->ally_turn = false;
 
     return 0;
+}
+
+/**
+ * Get the fleet position
+ * @returns String containing the positions
+ */
+std::string Board::get_fleet()
+{
+    return this->positions;
+}
+
+/**
+ * Get the turn's player
+ * @returns bool representing the ally turn
+ */
+bool Board::get_ally_turn()
+{
+    return this->ally_turn;
 }
 
 #endif
