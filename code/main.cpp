@@ -6,10 +6,10 @@
 #include <string>
 #include <arpa/inet.h>
 #include <thread>
+#include <limits>
 
 #include "./libs/board.hpp"
 #include "./libs/server.hpp"
-#include "./libs/client.hpp"
 
 /**
  * Prototypes
@@ -29,8 +29,28 @@ int main(int argc, char *argv[])
     if (mode == -1)
         return show_usage();
 
+    Server server = Server(mode);
+
+    // Client mode
+    if (mode == 0 && server.start(std::stoi(argv[3]), argv[2]) == -1)
+    {
+        std::cout << "Falha ao conectar ao servidor!\n\n";
+        return -1;
+    }
+
+    // Server mode
+    if (mode == 1 && server.start(std::stoi(argv[2])) == -1)
+    {
+        std::cout << "Falha ao receber conexões!\n\n";
+        return -1;
+    }
+
+    // Start the listening thread
+    std::thread listen_t(&Server::receive_message, &server);
+
     Board board;
 
+    // TODO remove after tests
     board.insert_ship('A', 3, "PA", 'H');
     board.insert_ship('B', 1, "DE", 'V');
     board.insert_ship('D', 1, "DE", 'V');
@@ -42,38 +62,24 @@ int main(int argc, char *argv[])
     insert_ships(&board);
 
     // Game loop
-    // while (!board.check_game_over()) {
-    //     board.show_board();
-
-    // Check turn
-
-    // }
-
-    // Client mode
-    if (mode == 0)
+    while (!board.check_game_over())
     {
-        Client client = Client(argv[2], std::stoi(argv[3]));
+        board.show_board();
 
-        client.start_client();
+        if (!server.is_connected())
+        {
+            if (listen_t.joinable())
+                listen_t.join();
 
-        client.send_message("TESTEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            if (server.reconnect() == 0)
+                listen_t = std::thread(&Server::receive_message, &server);
+        }
+
+        // Check turn
     }
 
-    // Server mode
-    if (mode == 1)
-    {
-        Server server = Server(std::stoi(argv[2]));
-
-        server.start_server();
-
-        std::cout << "deu certo";
-        
-        std::thread listen_t(&Server::receive_message, &server);
-
-        std::cout << "deu certo";
-
+    if (listen_t.joinable())
         listen_t.join();
-    }
 
     return 0;
 }
@@ -162,7 +168,7 @@ int validate_port(char *port)
     {
     }
 
-    if (int_port < 1023 || int_port > 65535)
+    if (int_port < 1024 || int_port > 65535)
     {
         std::cout << "Porta " << port << " inválida!\n\n";
         return -1;
@@ -216,7 +222,13 @@ void insert_ships(Board *board)
 
         std::cout << "Coluna (1-10): ";
 
-        std::cin >> column;
+        if (!(std::cin >> column))
+        {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            wait_for_enter("\nColuna inválida! [Enter]");
+            continue;
+        }
 
         char direction;
 
@@ -241,12 +253,9 @@ void insert_ships(Board *board)
 void wait_for_enter(std::string message)
 {
     std::cout << message;
-
-    std::cin.ignore();
-
-    while (std::cin.get() != 10)
-    {
-    };
+    std::cin.clear();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.get();
 
     system("clear");
 }
