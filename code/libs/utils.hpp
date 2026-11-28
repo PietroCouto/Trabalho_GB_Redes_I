@@ -145,7 +145,7 @@ void insert_ships(Board *board)
 
         if (size == -1)
         {
-            wait_for_enter("\nTipo Inválido! [Enter]");
+            wait_for_enter("Tipo Inválido!");
 
             continue;
         }
@@ -163,7 +163,7 @@ void insert_ships(Board *board)
         {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            wait_for_enter("\nColuna inválida! [Enter]");
+            wait_for_enter("Coluna inválida!");
             continue;
         }
 
@@ -175,7 +175,7 @@ void insert_ships(Board *board)
 
         if (board->insert_ship(line, column, type, direction) == -1)
         {
-            wait_for_enter("\nFalha ao inserir! [Enter]");
+            wait_for_enter("Falha ao inserir!");
             continue;
         }
 
@@ -189,7 +189,7 @@ void insert_ships(Board *board)
  */
 void wait_for_enter(std::string message)
 {
-    std::cout << message;
+    std::cout << "\n" << message << " [Enter]";
     std::cin.clear();
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     std::cin.get();

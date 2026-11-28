@@ -19,27 +19,35 @@ public:
 
     // Methods
     void show_board();
-    int insert_ship(char line, int column, std::string type, char direction);
     void show_available_ships();
+
     int get_available_ships(std::string type);
     int get_ship_size(std::string type);
+
     std::string enemy_shot(char line, int column);
-    int ally_shot(char line, int column, bool hit);
-    bool check_game_over();
     std::string get_fleet();
+
+    bool ally_shot(char line, int column, bool hit);
+    bool check_game_over();
     bool get_ally_turn();
+    bool validate_ally_shot_coordinates(char line, int column);
+    bool insert_ship(char line, int column, std::string type, char direction);
 
 private:
     // Attributes
     int ally_side[10][10];
     int enemy_side[10][10];
+
     std::string positions;
+
     Ship ships[6];
+
     bool ally_turn;
 
     // Methods
-    int validate_coordinates(char line, int column);
-    int validate_ship_placement(char line, int column, std::string type, char direction);
+    bool validate_coordinates(char line, int column);
+    bool validate_ship_placement(char line, int column, std::string type, char direction);
+
     int set_placed(std::string type);
 };
 
@@ -129,17 +137,17 @@ void Board::show_board()
  * Checks if a given coordinate is valid
  * @param line The line letter
  * @param column The column number
- * @returns -1 for error, 0 for succcess
+ * @returns Boolean representing the validity
  */
-int Board::validate_coordinates(char line, int column)
+bool Board::validate_coordinates(char line, int column)
 {
     if (column < 1 || column > 10)
-        return -1;
+        return false;
 
     if (lines.find(line) == std::string::npos)
-        return -1;
+        return false;
 
-    return 0;
+    return true;
 }
 
 /**
@@ -148,37 +156,37 @@ int Board::validate_coordinates(char line, int column)
  * @param column The column to insert into
  * @param type The ship's type
  * @param direction The direction of the insertion
- * @returns -1 for error, 0 for success
+ * @returns Boolean representing the validity
  */
-int Board::validate_ship_placement(char line, int column, std::string type, char direction)
+bool Board::validate_ship_placement(char line, int column, std::string type, char direction)
 {
     // Validate the coordinates
     if (validate_coordinates(line, column) == -1)
-        return -1;
+        return false;
 
     int size = get_ship_size(type);
 
     // Validate the ship's type
     if (size == -1)
-        return -1;
+        return false;
 
     // Check if this type is available
     if (get_available_ships(type) == 0)
-        return -1;
+        return false;
 
     // Validate horizontally
     if (direction == 'H')
     {
         // Check if it is out of bounds
         if (column > (11 - size))
-            return -1;
+            return false;
 
         // Validate if the slot is empty
         for (int j = column - 1; j < column + size - 1; j++)
             if (ally_side[lines.find(line)][j] != -1)
-                return -1;
+                return false;
 
-        return 0;
+        return true;
     }
 
     // Validate vertically
@@ -186,17 +194,17 @@ int Board::validate_ship_placement(char line, int column, std::string type, char
     {
         // Check if it is out of bounds
         if (lines.substr(lines.size() - (size - 1)).find(line) != std::string::npos)
-            return -1;
+            return false;
 
         // Validate if the slot is empty
         for (int i = lines.find(line); i < lines.find(line) + size; i++)
             if (ally_side[i][column - 1] != -1)
-                return -1;
+                return false;
 
-        return 0;
+        return true;
     }
 
-    return -1;
+    return false;
 }
 
 /**
@@ -205,19 +213,19 @@ int Board::validate_ship_placement(char line, int column, std::string type, char
  * @param column The column to insert into
  * @param type The ship's type
  * @param direction The direction of the insertion
- * @returns -1 for error, 0 for success
+ * @returns Boolean representing the operation success
  */
-int Board::insert_ship(char line, int column, std::string type, char direction)
+bool Board::insert_ship(char line, int column, std::string type, char direction)
 {
     // Check if it can be inserted on the given coordinates
     if (validate_ship_placement(line, column, type, direction) == -1)
-        return -1;
+        return false;
 
     int ship_index = set_placed(type);
 
     // Decrease this type's available ships
     if (ship_index == -1)
-        return -1;
+        return false;
 
     // Insert horizontally
     if (direction == 'H')
@@ -235,7 +243,7 @@ int Board::insert_ship(char line, int column, std::string type, char direction)
     if (get_available_ships("") > 0)
         this->positions.append(" ");
 
-    return 0;
+    return true;
 }
 
 /**
@@ -381,26 +389,27 @@ int Board::set_placed(std::string type)
  * @param line The line coordinate
  * @param column The column coordinate
  * @param hit If the shot hit a ship
+ * @returns Boolean representing the operation success
  */
-int Board::ally_shot(char line, int column, bool hit)
+bool Board::ally_shot(char line, int column, bool hit)
 {
     // Check if it is the ally turn
     if (!this->ally_turn)
-        return -1;
+        return false;
 
     // Validate the coordinates
     if (validate_coordinates(line, column) == -1)
-        return -1;
+        return false;
 
     // Check if it is a repeated shot
     if (enemy_side[lines.find(line)][column - 1] >= 6)
-        return -1;
+        return false;
 
     enemy_side[lines.find(line)][column - 1] = hit ? 6 : 7;
 
     this->ally_turn = false;
 
-    return 0;
+    return true;
 }
 
 /**
@@ -419,6 +428,25 @@ std::string Board::get_fleet()
 bool Board::get_ally_turn()
 {
     return this->ally_turn;
+}
+
+/**
+ * @returns Boolean representing the validity
+ */
+bool Board::validate_ally_shot_coordinates(char line, int column)
+{
+    if (!validate_coordinates(line, column))
+        return false;
+
+    // Validate the coordinates
+    if (validate_coordinates(line, column) == -1)
+        return false;
+
+    // Check if it is a repeated shot
+    if (enemy_side[lines.find(line)][column - 1] >= 6)
+        return false;
+
+    return true;
 }
 
 #endif
