@@ -4,26 +4,25 @@
 
 #include <iostream>
 #include <string>
-#include <arpa/inet.h>
 #include <thread>
-#include <limits>
+#include <chrono>
 
 /**
  * Handmade Libraries
  */
 #include "./libs/board.hpp"
 #include "./libs/server.hpp"
+#include "./libs/utils.hpp"
+
+#define MAX_ATTEMPTS 15
 
 /**
  * Prototypes
  */
-
-int show_usage();
-int validate_options(int argc, char *argv[]);
-int validate_port(char *port);
-int validate_ip(char *string_ip);
-void insert_ships(Board *board);
-void wait_for_enter(std::string message);
+bool reconnection_handler(std::thread *listen_t, Server *server);
+bool ready_handler(std::thread *listen_t, Server *server);
+bool greetings_handler(std::thread *listen_t, Server *server, std::string *name, std::string *enemy_name);
+bool message_handler(std::string message, Server *server);
 
 /**
  * Battleship game
@@ -59,6 +58,12 @@ int main(int argc, char *argv[])
     // Start the listening thread
     std::thread listen_t(&Server::receive_message, &server);
 
+    std::string name;
+    std::string enemy_name;
+
+    if (!greetings_handler(&listen_t, &server, &name, &enemy_name))
+        return -1;
+
     Board board(mode);
 
     // TODO remove after tests
@@ -72,19 +77,18 @@ int main(int argc, char *argv[])
     // Insert the ships into the board
     insert_ships(&board);
 
+    if (!ready_handler(&listen_t, &server))
+        return -1;
+
     // Game loop
     while (!board.check_game_over())
     {
+        system("clear");
+
         board.show_board();
 
-        if (!server.is_connected())
-        {
-            if (listen_t.joinable())
-                listen_t.join();
-
-            if (server.reconnect() == 0)
-                listen_t = std::thread(&Server::receive_message, &server);
-        }
+        if (!server.is_connected() && !reconnection_handler(&listen_t, &server))
+            return -1;
 
         // Check turn
     }
@@ -96,179 +100,121 @@ int main(int argc, char *argv[])
 }
 
 /**
- * Validates the user's command line input
- * @param argc The argument count
- * @param argv The provided arguments
- * @returns -1 for error, 0 for client mode, 1 for server mode
+ * Handles the reconnection process
+ * @param listen_t Pointer to the listening thread
+ * @param server Pointer to the server instance
+ * @returns Boolean representing the success
  */
-int validate_options(int argc, char *argv[])
+bool reconnection_handler(std::thread *listen_t, Server *server)
 {
-    // Validate the argument count
-    if (argc < 3 || argc > 4)
-        return -1;
+    std::cout << "Conexão perdida!\n";
 
-    std::string flag = std::string(argv[1]);
+    int i = 1;
 
-    // Check if the user provided the connect option
-    if (flag.compare("-c") == 0 || flag.compare("--connect") == 0)
+    // Try to reconnect
+    while (!server->is_connected() && i <= MAX_ATTEMPTS)
     {
-        // Validate the argument count
-        if (argc != 4)
-            return -1;
+        std::cout << "[" << i << "] Reconectando...\n";
 
-        // Validate the provided IP address
-        if (validate_ip(argv[2]) == -1)
-            return -1;
+        // Check if the listening thread is joinable
+        if (listen_t->joinable())
+            listen_t->join();
 
-        // Validate the provided IP port
-        if (validate_port(argv[3]) == -1)
-            return -1;
-
-        return 0;
-    }
-
-    // Check if the user provided the listen option
-    if (flag.compare("-l") == 0 || flag.compare("--listen") == 0)
-    {
-        // Validate the argument count
-        if (argc != 3)
-            return -1;
-
-        // Validate the provided IP port
-        if (validate_port(argv[2]) == -1)
-            return -1;
-
-        return 1;
-    }
-
-    return -1;
-}
-
-/**
- * Checks if the provided IP address is valid
- * @param ip C string containing the address
- * @returns -1 for invalid, 0 for valid
- */
-int validate_ip(char *ip)
-{
-    char str[INET_ADDRSTRLEN];
-
-    if (inet_pton(AF_INET, ip, str) != 1)
-    {
-        std::cout << "Endereço IP " << ip << " inválido!\n\n";
-
-        return -1;
-    }
-
-    return 0;
-}
-
-/**
- * Checks if the provided IP port is valid
- * @param port
- */
-int validate_port(char *port)
-{
-    int int_port = -1;
-
-    try
-    {
-        int_port = std::stoi(port);
-    }
-    catch (...)
-    {
-    }
-
-    if (int_port < 1024 || int_port > 65535)
-    {
-        std::cout << "Porta " << port << " inválida!\n\n";
-        return -1;
-    }
-
-    return 0;
-}
-
-/**
- * Displays the correct command line usage
- * @returns -1 indicating the incorrect usage
- */
-int show_usage()
-{
-    std::cout << "Utilização: ./main [ -l | --listen <port> ] | [ -c | --connect <ip> <port> ]\n";
-
-    return -1;
-}
-
-/**
- * Get the fleet position from user input
- * @param board Pointer to the board
- */
-void insert_ships(Board *board)
-{
-    while (board->get_available_ships("") > 0)
-    {
-        board->show_board();
-
-        board->show_available_ships();
-
-        std::cout << "Digite o tipo de navio (2 letras): ";
-
-        std::string type;
-
-        std::cin >> type;
-
-        int size = board->get_ship_size(type);
-
-        if (size == -1)
+        // Try to reconnect
+        if (server->reconnect() == 0)
         {
-            wait_for_enter("\nTipo Inválido! [Enter]");
+            *listen_t = std::thread(&Server::receive_message, server);
 
-            continue;
-        }
-        char line;
-
-        std::cout << "Linha (A-J): ";
-
-        std::cin >> line;
-
-        int column;
-
-        std::cout << "Coluna (1-10): ";
-
-        if (!(std::cin >> column))
-        {
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            wait_for_enter("\nColuna inválida! [Enter]");
-            continue;
+            return true;
         }
 
-        char direction;
+        i++;
 
-        std::cout << "Direção do navio (H ou V): ";
+        // Put the thread to sleep to give some time between attempts
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
 
-        std::cin >> direction;
+    std::cout << "Limite de tentativas excedido! Encerrando...\n";
 
-        if (board->insert_ship(line, column, type, direction) == -1)
-        {
-            wait_for_enter("\nFalha ao inserir! [Enter]");
-            continue;
-        }
+    return false;
+}
 
-        system("clear");
+/**
+ * Handles the ready process
+ * @param listen_t Pointer to the listening thread
+ * @param server Pointer to the server instance
+ * @returns Boolean representing the success
+ */
+bool ready_handler(std::thread *listen_t, Server *server)
+{
+    if (!message_handler(listen_t, server, "PRONTO\n"))
+        return false;
+
+    while (true)
+    {
+        if (server->has_message() && server->get_message().find("PRONTO") != std::string::npos)
+            return true;
+
+        if (!server->is_connected() && !reconnection_handler(listen_t, server))
+            return false;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 /**
- * Displays a message and waits for the user to press enter
- * @param message The message to be displayed
+ * Handles the greeting process
+ * @param listen_t Pointer to the listening thread
+ * @param server Pointer to the server instance
+ * @param name String pointer to hold the player's name
+ * @param enemy_name String pointer to hold the enemy player's name
+ * @returns Boolean representing the success
  */
-void wait_for_enter(std::string message)
+bool greetings_handler(std::thread *listen_t, Server *server, std::string *name, std::string *enemy_name)
 {
-    std::cout << message;
-    std::cin.clear();
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    std::cin.get();
 
-    system("clear");
+    std::cout << "Digite seu nome: ";
+    std::cin >> *name;
+
+    if (!message_handler(listen_t, server, "OLA 1 " + *name + "\n"))
+        return false;
+
+    while (true)
+    {
+        if (server->has_message())
+        {
+            std::string message = server->get_message();
+
+            if (message.find("OLA 1 ") != std::string::npos)
+            {
+                *enemy_name = message.substr(6, message.size() - 1);
+                return true;
+            }
+        }
+
+        if (!server->is_connected() && !reconnection_handler(listen_t, server))
+            return false;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
+
+/**
+ * Send a message to the peer
+ * @param listen_t Pointer to the listening thread
+ * @param server Pointer to the server instance
+ * @param message The message to be sent
+ * @returns Boolean representing the success
+ */
+bool message_handler(std::thread *listen_t, Server *server, std::string message)
+{
+    while (server->send_message(message) == -1)
+    {
+        if (!server->is_connected() && !reconnection_handler(listen_t, server))
+            return false;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
+    return true;
 }
